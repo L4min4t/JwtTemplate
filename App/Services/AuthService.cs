@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using App.Entities;
-using App.Models.Auth;
+using App.Models.Auth.Request;
+using App.Models.Auth.Response;
 using App.Services.Interfaces;
 using Microsoft.AspNetCore.Identity;
 
@@ -39,26 +40,26 @@ public class AuthService : IAuthService
         if (result.Succeeded)
             return new RegisterResponseModel
             {
-                IsSuccessed = true,
-                Id = user.Id,
-                Email = user.Email
+                Content = new RegisterContent
+                {
+                    Id = user.Id,
+                    Email = user.Email
+                }
             };
         return new RegisterResponseModel
         {
-            IsSuccessed = false,
             Errors = result.Errors.Select(e => e.Description)
                 .ToArray()
         };
     }
     
-    public async Task<LoginResponseModel> LoginAsync(LoginModel model)
+    public async Task<UserInfoResponseModel> LoginAsync(LoginModel model)
     {
         var user = await _userManager.FindByEmailAsync(model.Email);
         
         if (user == null)
-            return new LoginResponseModel
+            return new UserInfoResponseModel
             {
-                IsSuccessed = false,
                 Errors = new[]
                 {
                     "Invalid email"
@@ -71,20 +72,22 @@ public class AuthService : IAuthService
         {
             var tokenModel = await _jwtService.GenerateTokenPairAsync(user);
             
-            return new LoginResponseModel
+            return new UserInfoResponseModel
             {
-                IsSuccessed = true,
-                Id = user.Id,
-                UserName = user.UserName,
-                AccessToken = tokenModel.AccessToken,
-                RefreshToken = tokenModel.RefreshToken,
-                Email = user.Email
+                Content = new UserInfoContent
+                {
+                    Id = user.Id,
+                    UserName = user.UserName,
+                    AccessToken = tokenModel.AccessToken,
+                    RefreshToken = tokenModel.RefreshToken,
+                    Email = user.Email,
+                    Roles = (await _userManager.GetRolesAsync(user)).ToArray()
+                }
             };
         }
         
-        return new LoginResponseModel
+        return new UserInfoResponseModel
         {
-            IsSuccessed = false,
             Errors = new[]
             {
                 "Invalid login attempt"
@@ -92,15 +95,14 @@ public class AuthService : IAuthService
         };
     }
     
-    public async Task<LoginResponseModel> ChangePasswordAsync(ChangePasswordModel model)
+    public async Task<UserInfoResponseModel> ChangePasswordAsync(ChangePasswordModel model)
     {
         var jwtEmail = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.Email)
             ?.Value;
         
         if (string.IsNullOrEmpty(jwtEmail) || !jwtEmail.Equals(model.Email, StringComparison.OrdinalIgnoreCase))
-            return new LoginResponseModel
+            return new UserInfoResponseModel
             {
-                IsSuccessed = false,
                 Errors = new[]
                 {
                     "You can only change your own password!"
@@ -110,9 +112,8 @@ public class AuthService : IAuthService
         var user = await _userManager.FindByEmailAsync(model.Email);
         
         if (user is null)
-            return new LoginResponseModel
+            return new UserInfoResponseModel
             {
-                IsSuccessed = false,
                 Errors = new[]
                 {
                     "User not found!"
@@ -123,9 +124,8 @@ public class AuthService : IAuthService
             (user!, user.PasswordHash!, model.OldPassword);
         
         if (passwordCheck is PasswordVerificationResult.Failed)
-            return new LoginResponseModel
+            return new UserInfoResponseModel
             {
-                IsSuccessed = false,
                 Errors = new[]
                 {
                     "The old password is not correct!"
@@ -140,20 +140,22 @@ public class AuthService : IAuthService
         {
             var tokenModel = await _jwtService.GenerateTokenPairAsync(user);
             
-            return new LoginResponseModel
+            return new UserInfoResponseModel
             {
-                IsSuccessed = true,
-                Id = user.Id,
-                UserName = user.UserName,
-                AccessToken = tokenModel.AccessToken,
-                RefreshToken = tokenModel.RefreshToken,
-                Email = user.Email
+                Content = new UserInfoContent
+                {
+                    Id = user.Id,
+                    UserName = user.UserName,
+                    AccessToken = tokenModel.AccessToken,
+                    RefreshToken = tokenModel.RefreshToken,
+                    Email = user.Email,
+                    Roles = (await _userManager.GetRolesAsync(user)).ToArray()
+                }
             };
         }
         
-        return new LoginResponseModel
+        return new UserInfoResponseModel
         {
-            IsSuccessed = false,
             Errors = new[]
             {
                 "Invalid change password attempt!"

@@ -1,4 +1,5 @@
 using App.DbContext;
+using App.DbSeeder;
 using App.Entities;
 using App.OptionsSetup;
 using App.Services;
@@ -21,8 +22,17 @@ builder.Services.AddIdentity<AuthUser, IdentityRole>()
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
+builder.Services.AddScoped<IAuthUserService, AuthUserService>();
+builder.Services.AddScoped<IRoleService, RoleService>();
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .ConfigureApiBehaviorOptions
+    (
+        options =>
+        {
+            options.SuppressModelStateInvalidFilter = true;
+        }
+    );
 
 builder.Services.AddSwaggerGen
 (
@@ -90,6 +100,23 @@ builder.Services.AddAuthentication
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    var dbContext = services.GetRequiredService<AuthDbContext>();
+    
+    try
+    {
+        await dbContext.Database.MigrateAsync();
+        
+        await AuthDbContextSeed.SeedAdminAndTestUsers(services);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine("An error occurred while seeding the database.\n", ex.Message);
+    }
+}
 
 if (app.Environment.IsDevelopment())
 {

@@ -1,42 +1,91 @@
-using Microsoft.AspNetCore.Identity;
+using App.Extensions;
+using App.Models.Role.Request;
+using App.Models.Role.Response;
+using App.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace App.Controllers;
 
 [ApiController]
+[Authorize(Roles = "Admin")]
 [Route("[controller]/[action]")]
 public class RoleController : ControllerBase
 {
-    private readonly RoleManager<IdentityRole> _roleManager;
+    protected readonly IRoleService _roleService;
     
-    public RoleController(RoleManager<IdentityRole> roleManager)
+    public RoleController(IRoleService roleService)
     {
-        _roleManager = roleManager;
+        _roleService = roleService;
     }
     
     [HttpPost]
-    public async Task<IActionResult> CreateRole(string roleName)
+    public async Task<IActionResult> CreateRole([FromBody] CreateRoleModel model)
     {
-        if (string.IsNullOrEmpty(roleName))
-        {
-            return BadRequest("Role name cannot be empty.");
-        }
+        if (!ModelState.IsValid)
+            return BadRequest
+            (
+                new RoleResponseModel
+                {
+                    Errors = ModelState.GetErrorMessages()
+                }
+            );
         
-        var roleExists = await _roleManager.RoleExistsAsync(roleName);
-        if (!roleExists)
-        {
-            var roleResult = await _roleManager.CreateAsync(new IdentityRole(roleName));
-            if (roleResult.Succeeded)
-            {
-                return Ok($"Role '{roleName}' created successfully.");
-            }
-            else
-            {
-                return BadRequest($"Error creating role: {string.Join(", ", roleResult.Errors.Select(e => e.Description))}");
-            }
-        }
+        var result = await _roleService.CreateAsync(model);
         
-        return BadRequest($"Role '{roleName}' already exists.");
+        return result.IsSuccessed
+            ? Ok(result)
+            : BadRequest(result);
+    }
+    
+    [HttpDelete]
+    [Route("{id:guid}")]
+    public async Task<IActionResult> Delete([FromRoute] string id)
+    {
+        var result = await _roleService.DeleteByIdAsync(id);
+        
+        return result.IsSuccessed
+            ? Ok(result.Content)
+            : BadRequest(result.Errors);
+    }
+    
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        var result = await _roleService.GetAllAsync();
+        
+        return result.IsSuccessed
+            ? Ok(result.Content)
+            : BadRequest(result.Errors);
+    }
+    
+    [HttpGet]
+    [Route("{id:guid}")]
+    public async Task<IActionResult> GetById([FromRoute] string id)
+    {
+        var result = await _roleService.GetByIdAsync(id);
+        
+        return result.IsSuccessed
+            ? Ok(result.Content)
+            : BadRequest(result.Errors);
+    }
+    
+    [HttpPut]
+    public async Task<IActionResult> Edit([FromBody] EditRoleModel model)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest
+            (
+                new RoleResponseModel
+                {
+                    Errors = ModelState.GetErrorMessages()
+                }
+            );
+        
+        var result = await _roleService.EditAsync(model);
+        
+        return result.IsSuccessed
+            ? Ok(result.Content)
+            : BadRequest(result.Errors);
     }
 }
-

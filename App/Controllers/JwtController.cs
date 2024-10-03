@@ -25,6 +25,6 @@ public class JwtController : ControllerBase
         
         return result.IsSuccessed
             ? Ok(result)
-            : Conflict(result);
+            : BadRequest(result);
     }
 }
